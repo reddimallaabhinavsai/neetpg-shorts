@@ -1,0 +1,14 @@
+[
+  {
+    "question": "What is the most specific marker of myocardial infarction?",
+    "options": ["A) CK-MB", "B) LDH", "C) Troponin I", "D) Myoglobin"],
+    "answer": "C) Troponin I",
+    "explanation": "Troponin I is the most specific marker for myocardial infarction."
+  },
+  {
+    "question": "Most common site of gastric carcinoma?",
+    "options": ["A) Fundus", "B) Body", "C) Antrum", "D) Cardia"],
+    "answer": "C) Antrum",
+    "explanation": "The antrum is the most common site of gastric carcinoma in India."
+  }
+]
