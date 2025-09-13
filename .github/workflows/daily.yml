@@ -3,7 +3,7 @@ name: Daily NEET PG Shorts
 on:
   schedule:
     - cron: "0 6 * * *"   # Runs every day at 6 AM UTC
-  workflow_dispatch:       # Allow manual run
+    workflow_dispatch:       # Allow manual run
 
 jobs:
   upload:
