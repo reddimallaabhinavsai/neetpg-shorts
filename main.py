@@ -1,56 +1,51 @@
-import os
+import random
+import json
+from moviepy.editor import TextClip, concatenate_videoclips
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
-from moviepy.editor import ImageClip
-from PIL import Image, ImageDraw, ImageFont
+import os
 
-# Load your secrets from GitHub
-CLIENT_ID = os.getenv("YT_CLIENT_ID")
-CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET")
-REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN")
+# Load questions.json
+with open("questions.json", "r") as f:
+    questions = json.load(f)
 
-# Question & Answer
-question = "NEET PG Daily Question:\nWhat is the most specific marker for MI?"
-answer = "Answer: Troponin I\nExplanation: Highly specific and sensitive."
+# Pick a random question
+q = random.choice(questions)
+question = q["question"]
+options = "\n".join(q["options"])
+answer = q["answer"]
+explanation = q["explanation"]
 
-# --- Create an image with text ---
-img = Image.new("RGB", (720, 1280), color=(0, 0, 0))
-draw = ImageDraw.Draw(img)
+# Create video text
+text_content = f"NEET PG Daily Question:\n{question}\n\n{options}\n\nAnswer: {answer}\nExplanation: {explanation}"
 
-try:
-    font = ImageFont.truetype("DejaVuSans.ttf", 40)
-except:
-    font = ImageFont.load_default()
+# Make video (black background with white text)
+clip = TextClip(text_content, fontsize=40, color='white', size=(720,1280), method="caption", bg_color="black", align="center")
+clip = clip.set_duration(15)  # 15 seconds video
 
-text = question + "\n\n" + answer
-draw.multiline_text((50, 100), text, font=font, fill=(255, 255, 255), spacing=10)
-
-img.save("frame.png")
-
-# --- Convert image to video ---
-clip = ImageClip("frame.png").set_duration(30)
+# Save video
 clip.write_videofile("neetpg_short.mp4", fps=24)
 
-# --- Authenticate with YouTube ---
+# Authenticate with YouTube API
 creds = Credentials(
     None,
-    refresh_token=REFRESH_TOKEN,
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
+    refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
+    client_id=os.getenv("YOUTUBE_CLIENT_ID"),
+    client_secret=os.getenv("YOUTUBE_CLIENT_SECRET"),
     token_uri="https://oauth2.googleapis.com/token"
 )
+
 youtube = build("youtube", "v3", credentials=creds)
 
-# --- Upload video ---
+# Upload video
 request = youtube.videos().insert(
     part="snippet,status",
     body={
         "snippet": {
             "title": "Daily NEET PG Question",
-            "description": "NEET PG MCQ with Answer & Explanation",
-            "tags": ["neetpg", "medicine", "shorts"],
-            "categoryId": "27"
+            "description": question + "\nAnswer: " + answer + "\nExplanation: " + explanation,
+            "tags": ["NEET PG", "Medical PG", "MCQ", "Exam Prep"]
         },
         "status": {
             "privacyStatus": "public"
@@ -58,5 +53,6 @@ request = youtube.videos().insert(
     },
     media_body=MediaFileUpload("neetpg_short.mp4")
 )
+
 response = request.execute()
-print("✅ Video uploaded:", response["id"])
+print("✅ Uploaded: https://youtube.com/watch?v=" + response["id"])
