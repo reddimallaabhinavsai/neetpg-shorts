@@ -2,7 +2,8 @@ import os
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
-from moviepy.editor import ColorClip, CompositeVideoClip, TextClip
+from moviepy.editor import ImageClip
+from PIL import Image, ImageDraw, ImageFont
 
 # Load your secrets from GitHub
 CLIENT_ID = os.getenv("YT_CLIENT_ID")
@@ -13,18 +14,25 @@ REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN")
 question = "NEET PG Daily Question:\nWhat is the most specific marker for MI?"
 answer = "Answer: Troponin I\nExplanation: Highly specific and sensitive."
 
-# Background (black screen 720x1280)
-background = ColorClip(size=(720,1280), color=(0,0,0), duration=30)
+# --- Create an image with text ---
+img = Image.new("RGB", (720, 1280), color=(0, 0, 0))
+draw = ImageDraw.Draw(img)
 
-# Add text (using built-in MoviePy fonts, no ImageMagick needed)
-txt = TextClip(question + "\n\n" + answer, fontsize=40, color='white', method="caption", size=(700,1200))
-txt = txt.set_position("center").set_duration(30)
+try:
+    font = ImageFont.truetype("DejaVuSans.ttf", 40)
+except:
+    font = ImageFont.load_default()
 
-# Combine
-final = CompositeVideoClip([background, txt])
-final.write_videofile("neetpg_short.mp4", fps=24)
+text = question + "\n\n" + answer
+draw.multiline_text((50, 100), text, font=font, fill=(255, 255, 255), spacing=10)
 
-# Authenticate with YouTube
+img.save("frame.png")
+
+# --- Convert image to video ---
+clip = ImageClip("frame.png").set_duration(30)
+clip.write_videofile("neetpg_short.mp4", fps=24)
+
+# --- Authenticate with YouTube ---
 creds = Credentials(
     None,
     refresh_token=REFRESH_TOKEN,
@@ -34,7 +42,7 @@ creds = Credentials(
 )
 youtube = build("youtube", "v3", credentials=creds)
 
-# Upload video
+# --- Upload video ---
 request = youtube.videos().insert(
     part="snippet,status",
     body={
