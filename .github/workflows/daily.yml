@@ -1,16 +1,16 @@
-name: Daily Shorts
+name: Daily NEET PG Shorts
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: "0 5 * * *"   # Runs daily at 10:30 AM IST
-  workflow_dispatch:      # Allow manual run
+    - cron: "0 5 * * *"  # runs daily at 5:00 AM UTC
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -24,9 +24,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run script
+        run: python main.py
         env:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
-          TOKEN_URI: ${{ secrets.TOKEN_URI }}
-        run: python main.py
