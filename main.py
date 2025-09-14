@@ -58,14 +58,17 @@ create_text_image(text_content)
 clip = ImageClip("frame.png").set_duration(30)
 clip.write_videofile("neetpg_short.mp4", fps=24)
 
-# Upload to YouTube
+# Upload to YouTube with correct credentials
 scopes = ["https://www.googleapis.com/auth/youtube.upload"]
-creds = Credentials.from_authorized_user_info({
-    "client_id": os.getenv("CLIENT_ID"),
-    "client_secret": os.getenv("CLIENT_SECRET"),
-    "refresh_token": os.getenv("REFRESH_TOKEN"),
-    "token_uri": os.getenv("TOKEN_URI")
-}, scopes)
+
+creds = Credentials(
+    token=None,
+    refresh_token=os.getenv("REFRESH_TOKEN"),
+    token_uri=os.getenv("TOKEN_URI"),
+    client_id=os.getenv("CLIENT_ID"),
+    client_secret=os.getenv("CLIENT_SECRET"),
+    scopes=scopes
+)
 
 youtube = googleapiclient.discovery.build("youtube", "v3", credentials=creds)
 
