@@ -1,91 +1,83 @@
-import os
-import json
+from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip
 from PIL import Image, ImageDraw, ImageFont
-from moviepy.editor import ImageClip
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+import textwrap
+import json
+import os
 
-# ✅ Load questions
+# Track progress
+PROGRESS_FILE = "progress.txt"
+
+def load_progress():
+    """Load last completed question index."""
+    if os.path.exists(PROGRESS_FILE):
+        with open(PROGRESS_FILE, "r") as f:
+            return int(f.read().strip())
+    return 0
+
+def save_progress(idx):
+    """Save next question index."""
+    with open(PROGRESS_FILE, "w") as f:
+        f.write(str(idx))
+
+def create_slide(text, duration=5, size=(720, 1280)):
+    """Creates a slide with wrapped text using PIL."""
+    img = Image.new("RGB", size, color="black")
+    draw = ImageDraw.Draw(img)
+
+    font = ImageFont.truetype("DejaVuSans-Bold.ttf", 40)
+    wrapped = textwrap.fill(text, width=35)
+
+    # ✅ Center text
+    bbox = draw.multiline_textbbox((0, 0), wrapped, font=font, align="center")
+    w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    x = (size[0] - w) / 2
+    y = (size[1] - h) / 2
+
+    draw.multiline_text((x, y), wrapped, font=font, fill="white", align="center")
+
+    img.save("frame.png")
+    return ImageClip("frame.png").set_duration(duration)
+
+
+# ✅ Load all questions
 with open("questions.json", "r") as f:
     questions = json.load(f)
 
-question = questions[0]["question"]
-options = questions[0]["options"]
+# Load progress → pick today's question
+current_idx = load_progress()
+if current_idx >= len(questions):
+    print("✅ All questions completed.")
+    exit()
 
-# ✅ Create image with text (instead of TextClip)
-text_content = f"{question}\n\n" + "\n".join(options)
+q = questions[current_idx]
 
-# Create black background
-img = Image.new("RGB", (720, 1280), color="black")
-draw = ImageDraw.Draw(img)
+question = q["question"]
+options = q["options"]
+answer = q.get("answer", "")
+explanation = q.get("explanation", "")
 
-# Load font
+# Slide 1: Question + Options
+slide1_text = f"{question}\n\n" + "\n".join(options)
+slide1 = create_slide(slide1_text, duration=6)
+
+# Slide 2: Answer + Explanation
+slide2_text = f"Answer: {answer}\n\n{explanation}"
+slide2 = create_slide(slide2_text, duration=6)
+
+# ✅ Combine
+final_clip = concatenate_videoclips([slide1, slide2], method="compose")
+
+# ✅ Add background music
 try:
-    font = ImageFont.truetype("DejaVuSans.ttf", 40)
-except:
-    font = ImageFont.load_default()
+    audio = AudioFileClip("music.mp3").volumex(0.2)  # lower volume
+    audio = audio.set_duration(final_clip.duration)
+    final_clip = final_clip.set_audio(audio)
+except Exception as e:
+    print("⚠️ No music.mp3 found, exporting without background music.", e)
 
-# Auto-wrap text
-max_width = 680
-lines = []
-words = text_content.split()
-line = ""
+# ✅ Export video
+output_name = f"question_{current_idx+1}.mp4"
+final_clip.write_videofile(output_name, fps=24)
 
-def text_width(text):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    return bbox[2] - bbox[0]
-
-for word in words:
-    test_line = f"{line} {word}".strip()
-    if text_width(test_line) <= max_width:
-        line = test_line
-    else:
-        lines.append(line)
-        line = word
-lines.append(line)
-
-y_text = 50
-for line in lines:
-    bbox = draw.textbbox((0, 0), line, font=font)
-    w = bbox[2] - bbox[0]
-    h = bbox[3] - bbox[1]
-    draw.text(((720 - w) / 2, y_text), line, font=font, fill="white")
-    y_text += h + 10
-
-# Save frame
-img_path = "frame.png"
-img.save(img_path)
-
-# ✅ Convert to video
-clip = ImageClip(img_path).set_duration(10)
-clip.write_videofile("output.mp4", fps=24)
-
-# ✅ Upload to YouTube
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
-
-creds = Credentials(
-    None,
-    refresh_token=REFRESH_TOKEN,
-    token_uri="https://oauth2.googleapis.com/token",
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET
-)
-
-youtube = build("youtube", "v3", credentials=creds)
-
-request = youtube.videos().insert(
-    part="snippet,status",
-    body={
-        "snippet": {
-            "title": "NEET PG Question of the Day",
-            "description": "Daily NEET PG MCQ",
-            "tags": ["NEET PG", "Medical", "Exam"]
-        },
-        "status": {"privacyStatus": "public"}
-    },
-    media_body="output.mp4"
-)
-response = request.execute()
-print("Uploaded:", response)
+# ✅ Save progress for tomorrow
+save_progress(current_idx + 1)
