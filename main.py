@@ -1,96 +1,66 @@
 import os
 import json
-from moviepy.editor import ImageClip, concatenate_videoclips
-from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import TextClip, CompositeVideoClip
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+import random
 
-# ------------ CONFIG -----------------
-VIDEO_FILENAME = "neetpg_short.mp4"
-WIDTH, HEIGHT = 720, 1280
-FONT_SIZE = 40
-FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"  # GitHub runner has this font
-DURATION = 5  # seconds per question
-# --------------------------------------
-
-# Create text as image using Pillow
-def make_text_clip(text, duration=DURATION):
-    img = Image.new("RGB", (WIDTH, HEIGHT), color="black")
-    draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
-
-    # Word wrap
-    words = text.split()
-    lines, line = [], ""
-    for word in words:
-        test_line = line + word + " "
-        w, _ = draw.textsize(test_line, font=font)
-        if w <= WIDTH - 60:  # padding
-            line = test_line
-        else:
-            lines.append(line)
-            line = word + " "
-    lines.append(line)
-
-    # Draw text centered
-    y = 100
-    for line in lines:
-        w, h = draw.textsize(line, font=font)
-        draw.text(((WIDTH - w) / 2, y), line, font=font, fill="white")
-        y += h + 15
-
-    img.save("frame.png")
-    return ImageClip("frame.png").set_duration(duration)
-
-# Load questions
+# --------------------------
+# Load Questions
+# --------------------------
 with open("questions.json", "r") as f:
     questions = json.load(f)
 
-# Pick first question-answer for demo
-q = questions[0]["question"]
-opts = "\n".join(questions[0]["options"])
-ans = "Answer: " + questions[0]["answer"]
+question_data = random.choice(questions)
+question = question_data["question"]
+options = "\n".join(question_data["options"])
+answer = question_data["answer"]
 
-clips = [
-    make_text_clip(q, duration=DURATION),
-    make_text_clip(opts, duration=DURATION),
-    make_text_clip(ans, duration=DURATION),
-]
+text_content = f"Q: {question}\n\n{options}\n\nAnswer: {answer}"
 
-final_clip = concatenate_videoclips(clips)
-final_clip.write_videofile(VIDEO_FILENAME, fps=24)
+# --------------------------
+# Create Video
+# --------------------------
+clip = TextClip(
+    text_content,
+    fontsize=40,
+    color="white",
+    size=(720, 1280),
+    method="caption",
+    bg_color="black",
+    align="center"
+).set_duration(5)
 
-print("✅ Video created:", VIDEO_FILENAME)
+clip.write_videofile("neetpg_short.mp4", fps=24)
 
-# ----------- YOUTUBE UPLOAD -----------
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
-
+# --------------------------
+# Authenticate with YouTube
+# --------------------------
 creds = Credentials(
     None,
-    refresh_token=REFRESH_TOKEN,
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
+    refresh_token=os.environ["REFRESH_TOKEN"],
     token_uri="https://oauth2.googleapis.com/token",
+    client_id=os.environ["CLIENT_ID"],
+    client_secret=os.environ["CLIENT_SECRET"]
 )
 
 youtube = build("youtube", "v3", credentials=creds)
 
+# --------------------------
+# Upload Video
+# --------------------------
 request = youtube.videos().insert(
     part="snippet,status",
     body={
         "snippet": {
-            "title": "NEET PG Daily Question",
-            "description": "A quick revision question for NEET PG aspirants.",
-            "tags": ["neetpg", "medical", "exam"],
-            "categoryId": "27",  # Education
+            "title": f"NEET PG Question - {question[:50]}...",
+            "description": f"{question}\n\nOptions:\n{options}\n\nAnswer: {answer}",
+            "tags": ["NEET PG", "Medical Entrance", "Exam Prep"]
         },
-        "status": {"privacyStatus": "private"},
+        "status": {"privacyStatus": "public"},
     },
-    media_body=MediaFileUpload(VIDEO_FILENAME),
+    media_body="neetpg_short.mp4"
 )
 
 response = request.execute()
-print("✅ Uploaded to YouTube:", response)
+print("✅ Video uploaded:", response["id"])
