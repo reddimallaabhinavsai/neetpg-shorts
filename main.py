@@ -1,21 +1,20 @@
-import json
 import os
-import random
-import moviepy.editor as mp  # ✅ Fixed import
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+import json
+from moviepy.editor import TextClip, CompositeVideoClip
 from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 
-# Load questions
+# ✅ Load questions
 with open("questions.json", "r") as f:
     questions = json.load(f)
 
-# Pick random question
-question = random.choice(questions)
-text_content = f"Q: {question['question']}\n\nA: {question['answer']}"
+question = questions[0]["question"]
+options = questions[0]["options"]
 
-# Create video
-clip = mp.TextClip(
+# ✅ Create video text
+text_content = f"{question}\n\n" + "\n".join(options)
+
+clip = TextClip(
     text_content,
     fontsize=40,
     color="white",
@@ -23,11 +22,12 @@ clip = mp.TextClip(
     method="caption",
     bg_color="black",
     align="center"
-).set_duration(5)
+).set_duration(10)
 
-clip.write_videofile("neetpg_short.mp4", fps=24)
+final = CompositeVideoClip([clip])
+final.write_videofile("output.mp4", fps=24)
 
-# Upload to YouTube
+# ✅ Upload to YouTube
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
@@ -35,9 +35,9 @@ REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
 creds = Credentials(
     None,
     refresh_token=REFRESH_TOKEN,
+    token_uri="https://oauth2.googleapis.com/token",
     client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    token_uri="https://oauth2.googleapis.com/token"
+    client_secret=CLIENT_SECRET
 )
 
 youtube = build("youtube", "v3", credentials=creds)
@@ -46,17 +46,13 @@ request = youtube.videos().insert(
     part="snippet,status",
     body={
         "snippet": {
-            "title": "NEET PG Shorts",
-            "description": "Quick revision for NEET PG",
-            "tags": ["NEET PG", "Medical", "Shorts"],
-            "categoryId": "27"
+            "title": "NEET PG Question of the Day",
+            "description": "Daily NEET PG MCQ",
+            "tags": ["NEET PG", "Medical", "Exam"]
         },
-        "status": {
-            "privacyStatus": "public"
-        }
+        "status": {"privacyStatus": "public"}
     },
-    media_body=MediaFileUpload("neetpg_short.mp4")
+    media_body="output.mp4"
 )
-
 response = request.execute()
-print("Uploaded video ID:", response["id"])
+print("Uploaded:", response)
