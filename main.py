@@ -19,7 +19,7 @@ text_content = f"{question}\n\n" + "\n".join(options)
 img = Image.new("RGB", (720, 1280), color="black")
 draw = ImageDraw.Draw(img)
 
-# Load font (default PIL font if no TTF available)
+# Load font
 try:
     font = ImageFont.truetype("DejaVuSans.ttf", 40)
 except:
@@ -30,10 +30,14 @@ max_width = 680
 lines = []
 words = text_content.split()
 line = ""
+
+def text_width(text):
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return bbox[2] - bbox[0]
+
 for word in words:
     test_line = f"{line} {word}".strip()
-    w, _ = draw.textsize(test_line, font=font)
-    if w <= max_width:
+    if text_width(test_line) <= max_width:
         line = test_line
     else:
         lines.append(line)
@@ -42,7 +46,9 @@ lines.append(line)
 
 y_text = 50
 for line in lines:
-    w, h = draw.textsize(line, font=font)
+    bbox = draw.textbbox((0, 0), line, font=font)
+    w = bbox[2] - bbox[0]
+    h = bbox[3] - bbox[1]
     draw.text(((720 - w) / 2, y_text), line, font=font, fill="white")
     y_text += h + 10
 
