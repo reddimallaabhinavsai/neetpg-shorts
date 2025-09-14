@@ -63,7 +63,8 @@ scopes = ["https://www.googleapis.com/auth/youtube.upload"]
 creds = Credentials.from_authorized_user_info({
     "client_id": os.getenv("CLIENT_ID"),
     "client_secret": os.getenv("CLIENT_SECRET"),
-    "refresh_token": os.getenv("REFRESH_TOKEN")
+    "refresh_token": os.getenv("REFRESH_TOKEN"),
+    "token_uri": os.getenv("TOKEN_URI")
 }, scopes)
 
 youtube = googleapiclient.discovery.build("youtube", "v3", credentials=creds)
